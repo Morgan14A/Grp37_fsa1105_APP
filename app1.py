@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Copyright © Morgan Leclerc & Catholic University of Louvain (2018)
 
@@ -28,6 +29,8 @@ same conditions as regards security.
 
 The fact that you are presently reading this means that you have had
 knowledge of the CeCILL-B license and that you accept its terms.
+
+This program needs Python 3.5+ to run
 """
 
 __author__ = 'Morgan Leclerc'
@@ -45,11 +48,48 @@ Please see code comments, or send an email for any qestion you may have.
 ###########################
 
 
+import sys
+# from itertools import product
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
-def get_workstation_time(size=(1,5), mean=180, manual=True) -> float:
+def get_mean_variance(data: np.ndarray):
+    """
+    Computes the mean and the variance of a numpy array using Welford's method.
+
+    :param data: The array.
+    :return: A 2-tuple of the mean, variance.
+    """
+    data = data.flatten()
+    old_mean = new_mean = data[0]
+    variance = count = 0
+    for value in data:
+        count += 1
+        new_mean = old_mean + (value-old_mean)/count
+        variance += (value-old_mean)*(value-new_mean)
+        old_mean = new_mean
+    return new_mean, variance/count
+
+
+def get_quantile(data: np.ndarray, prob: float):
+    """
+    Computes the quantile of a numpy array.
+
+    :param data: The array.
+    :param prob: The probability to be under desired quantile.
+    :return: The quantile value.
+    """
+    data = data.flatten()
+    data.sort()
+    i = int(len(data)*prob + 0.5)
+    if i >= len(data):
+        return data[-1]
+    else:
+        return data[i]
+
+
+def get_workstation_time(size=(1, 5), mean=180, custom=None) -> np.ndarray:
     """
     Get a matrix of random times, in second, where each entry is the time spent
     at a single workstation. To fit the problem we were asked, the matrix
@@ -64,9 +104,94 @@ def get_workstation_time(size=(1,5), mean=180, manual=True) -> float:
         number of screens manufactured, and the number of column as the number
         of workstations to go through before completing the screen assembling.
     :param mean: The mean of the exponential distribution.
-    :param manual: Set to true to compute exponential distribution from
-        equiprobable random numbers (slower). When set to false, uses the
-        numpy function.
+    :param custom: Use a custom method to compute random numbers (may be
+        slower). When set to False or None, uses a numpy function.
+        Available custom methods:
+          - monte-carlo: Uses a monte-carlo algorithm to compute each number.
+          - inversion-sampling: Uses the inverse cumulative function
+            of the distribution to sample random numbers.
 
     :return: A matrix of random times following exponential distribution.
     """
+    if not custom:
+        return np.random.exponential(mean, size)
+    if custom.lower() == 'monte-carlo':
+        pass
+    elif custom.lower() == 'inversion-sampling':
+        return -mean*np.log(1 - np.random.random(size))
+
+
+def run_simulation(*args):
+    """
+    Make tests and print report.
+
+    Runnable:
+    enter one as argument to run simulation: run('simulation name', ...)
+
+      - inversion-sampling workstation times
+      - numpy workstation times
+    """
+    n = 0
+    if 'inversion-sampling workstation times' in args:
+        n += 1
+        n_trial = int(1e5)
+        print('-- Test {}: inversion-sampling workstation times'.format(n))
+        for m in 1, 10, 100, 180, 300, 1000:
+            try:
+                results = get_workstation_time((n_trial, 1), mean=m,
+                                               custom='inversion-sampling')
+                mean, variance = get_mean_variance(results)
+                median = get_quantile(results, 0.5)
+                print('   -')
+                print('   | number of trials: {}'.format(n_trial))
+                print('   | mean    : {: >8d} | {: >11.4e} | error={: >7.5e} '
+                      '( {: <2.3%} )'
+                      .format(m, mean, abs(m - mean), abs(m-mean)/m))
+                print('   | variance: {: >8d} | {: >11.4e} | error={: >7.5e} '
+                      '( {: <2.3%} )'
+                      .format(m*m, variance, abs(m*m - variance),
+                              abs(m*m-variance)/(m*m)))
+                print('   | median  : {: >8.3f} | {: >11.4e} | error={: >7.5e} '
+                      '( {: <2.3%} )'
+                      .format(m*np.log(2), median, abs(m*np.log(2) - median),
+                              abs((m*np.log(2)-median)/(m*np.log(2)))))
+            except Exception as e:
+                print('## Error occurred ##')
+                print(repr(e))
+        print('   -')
+    if 'numpy workstation times' in args:
+        n += 1
+        n_trial = int(1e5)
+        print('-- Test {}: numpy workstation times'.format(n))
+        for m in 1, 10, 100, 180, 300, 1000:
+            try:
+                results = get_workstation_time((n_trial, 1), mean=m)
+                mean, variance = get_mean_variance(results)
+                median = get_quantile(results, 0.5)
+                print('   -')
+                print('   | number of trials: {}'.format(n_trial))
+                print('   | mean    : {: >8d} | {: >11.4e} | error={: >7.5e} '
+                      '( {: <2.3%} )'
+                      .format(m, mean, abs(m - mean), abs(m-mean)/m))
+                print('   | variance: {: >8d} | {: >11.4e} | error={: >7.5e} '
+                      '( {: <2.3%} )'
+                      .format(m*m, variance, abs(m*m - variance),
+                              abs(m*m-variance)/(m*m)))
+                print('   | median  : {: >8.3f} | {: >11.4e} | error={: >7.5e} '
+                      '( {: <2.3%} )'
+                      .format(m*np.log(2), median, abs(m*np.log(2) - median),
+                              abs((m*np.log(2)-median)/(m*np.log(2)))))
+            except Exception as e:
+                print('## Error occurred ##')
+                print(repr(e))
+        print('   -')
+
+
+if __name__ == '__main__':
+
+    if len(sys.argv) > 1:  # If launched with argument from command-line
+        run_simulation(sys.argv[1:])
+    else:                  # If launched without argument
+        run_simulation('inversion-sampling workstation times',
+                       'numpy workstation times',
+                       )
