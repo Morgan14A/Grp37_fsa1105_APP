@@ -76,7 +76,7 @@ if sys.version_info < (3, 5):
     print('tg')
 
 
-def workstation(mean: float, size: int=1):
+def workstation(mean: float, size: int = 1):
     """
     :param mean: The mean time an item spend at this workstation.
     :param size: Size of the sample.
@@ -88,7 +88,7 @@ def workstation(mean: float, size: int=1):
     return -mean * np.log(1 - np.random.random(size))
 
 
-def assembly_line(mean: float, size: int=1):
+def assembly_line(mean: float, size: int = 1):
     """
     :param mean: The mean time an item spend at each workstation.
     :param size: Size of the sample.
@@ -113,10 +113,49 @@ def produce(prod_time: float, mean: float) -> int:
     return count
 
 
+def parse_reports(reports: list, prints=True):
+    """
+    Convert reports to strings nicely.
+
+    :param report: The report to print as a list of dict.
+    """
+    titles = []
+    for report in reports:
+        for title in report:
+            if title not in titles:
+                titles.append(title)
+
+    lengths = {title: len(title) for title in titles}
+    for title in titles:
+        for report in reports:
+            if title in report and len(str(report[title])) > lengths[title]:
+                lengths[title] = len(str(report[title]))
+
+    line = '|' + '|'.join([' ' + title + ' '*(lengths[title]-len(title))
+                           for title in titles]) + '|\n'
+    line += '|' + '|'.join([':' + '-'*(lengths[title]-1) + ':'
+                            for title in titles]) + '|\n'
+
+    for report in reports:
+        line += '|'
+        for title in titles:
+            line += ' '
+            line += str(report[title])
+            line += ' '*(lengths[title]-len(str(report[title])))
+            line += '|'
+        line += '\n'
+
+    if prints:
+        print(line)
+
+
 if __name__ == '__main__':
-    n_trials = 100, 1000, 1000000
-    prod_times = 8*60,
-    means = 3,
+    plot_histograms = False
+    print_reports = True
+
+    n_trials = 100, 10000,  # 1000000
+    prod_times = 8 * 60, 1000
+    means = 3, 5, 7
 
     report = []
 
@@ -127,27 +166,26 @@ if __name__ == '__main__':
                 sample = [produce(p, m) for _ in range(n)]
                 sample.sort()
                 length = len(sample)
-                lower_q = sample[int(0.05*length)]
-                higher_q = sample[int(0.95*length)]
+                lower_q = sample[int(0.05 * length)]
+                higher_q = sample[int(0.95 * length)]
 
                 s_mean = stats.tmean(sample)
                 s_variance = stats.variation(sample)
                 report.append({'production time': p,
                                'number of trials': n,
                                'time taken': time.time() - s_time,
-                               'samples': None, #sample,
-                               'expected mean': p/(5*m),
-                               'expected variance': -1,
+                               'samples': None,
+                               'expected mean': p / (5 * m),
+                               'expected variance': 'unknown',
                                'sample mean': s_mean,
                                'sample variance': s_variance,
                                '5% percentile': lower_q,
                                '95% percentile': higher_q,
                                })
-                plt.hist(sample, 30, density=True)
-                plt.show()git add
+                if plot_histograms:
+                    plt.hist(sample,
+                             range(min(sample), max(sample)+1),
+                             density=True)
+                    plt.show()
 
-    print([r for r in report], sep='\n---\n')
-
-
-
-
+    parse_reports(report, print_reports)
