@@ -68,7 +68,6 @@ This module needs Python 3.5+ to run
 
 import sys
 import time
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
@@ -115,9 +114,9 @@ def produce(prod_time: float, mean: float) -> int:
 
 
 if __name__ == '__main__':
-    n_trials = 100, 1000, 10000
+    n_trials = 100, 1000, 1000000
     prod_times = 8*60,
-    means = 1, 3, 6
+    means = 3,
 
     report = []
 
@@ -126,19 +125,28 @@ if __name__ == '__main__':
             for n in n_trials:
                 s_time = time.time()
                 sample = [produce(p, m) for _ in range(n)]
+                sample.sort()
+                length = len(sample)
+                lower_q = sample[int(0.05*length)]
+                higher_q = sample[int(0.95*length)]
+
                 s_mean = stats.tmean(sample)
                 s_variance = stats.variation(sample)
                 report.append({'production time': p,
                                'number of trials': n,
                                'time taken': time.time() - s_time,
-                               'samples': sample,
-                               'expected mean': m,
-                               'expected variance': 2,
+                               'samples': None, #sample,
+                               'expected mean': p/(5*m),
+                               'expected variance': -1,
                                'sample mean': s_mean,
                                'sample variance': s_variance,
+                               '5% percentile': lower_q,
+                               '95% percentile': higher_q,
                                })
+                plt.hist(sample, 30, density=True)
+                plt.show()git add
 
-    print(report)
+    print([r for r in report], sep='\n---\n')
 
 
 
