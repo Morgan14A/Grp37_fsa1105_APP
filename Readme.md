@@ -15,13 +15,13 @@ You will need Python3.5+ to run this program.
 
 First, authorize execution (must be done only once):
 ```bash
-chmod +x app1.py
+chmod +x app1_q1.py
 ```
 Then execute it:
 ```bash
-./app1.py [simulation to run] [...] 
+./app1_q1.py
 ```
 Or to run it with python without need to authorize execution:
 ```bash
-python3 app1.py [simulation to run] [...] 
+python3 app1_q1.py
 ```
