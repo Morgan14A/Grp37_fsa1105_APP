@@ -45,11 +45,6 @@ Statistics, by Donatien Hainaut and Rainer Von Sachs). Whenever we reference a
 book, it is the reference book of the course :
 Mathematical statistics with applications. Wackerly, Mendenhall, Scheaffer.
 
-This module provides functions to compute some basic quantities over 
-arbitrary large samples, (like the mean, the variances, and quantiles) for 
-single variable probabilities, to generate pseudo-random numbers following 
-exponential and gamma distributions, and many plot and printing utilities.
-
 This module needs Python 3.5+ to run
 '''
 
@@ -76,72 +71,67 @@ if sys.version_info < (3, 5):
     print('tg')
 
 
-def workstation(mean: float, size: int = 1):
+def produce(prod_time: float, man_mean: float, rep_mean: float=0) -> int:
     """
-    :param mean: The mean time an item spend at this workstation.
-    :param size: Size of the sample.
-    :return: The time of an item spent at this workstation
-    """
-    # Following the inverse transform property of cumulative distribution
-    # functions, we can generate pseudo random numbers following any
-    # distribution from uniformly distributed pseudo-random numbers.
-    return -mean * np.log(1 - np.random.random(size))
+    Sample from a pseudo-random variable that represents the number of item
+    produced by an assembly line over a given time.
 
-
-def assembly_line(mean: float, size: int = 1):
-    """
-    :param mean: The mean time an item spend at each workstation.
-    :param size: Size of the sample.
-    :return: The total time an item took to be produced.
-    """
-    res = np.zeros(size)
-    for i in range(size):
-        res[i] = np.sum(workstation(mean, 5))
-    return res
-
-
-def produce(prod_time: float, mean: float) -> int:
-    """
     :param prod_time: The total production time of the line (must be > 0).
-    :param mean: The mean time an item spend at each workstation
+    :param man_mean: The mean time an item spend at each workstation
+    :param rep_mean: The mean time needed to repair the line (0 to disactive
+        line breakdown).
     :return: The number of items produced.
     """
     count = -1
+
+    if np.random.random() < 0.1:
+        prod_time -= -rep_mean * np.log(np.random.random())
+
     while prod_time > 0:
         count += 1
-        prod_time -= assembly_line(mean)
+        prod_time -= -man_mean * np.log(np.random.random()) \
+                     - man_mean * np.log(np.random.random()) \
+                     - man_mean * np.log(np.random.random()) \
+                     - man_mean * np.log(np.random.random()) \
+                     - man_mean * np.log(np.random.random())
     return count
 
 
-def parse_reports(reports: list, prints=True):
+def parse_reports(reports: list, prints=True, titles=None):
     """
     Convert reports to strings nicely.
 
-    :param report: The report to print as a list of dict.
+    :param reports: The report to print as a list of dict.
+    :param prints: True to print parsed string.
+    :param titles: The titles of each column of the reports summary, in order.
+        If a report field is not in the given titles, it is appended to the
+        reports summary titles.
     """
-    titles = []
-    for report in reports:
-        for title in report:
+    if titles is None:
+        titles = []
+
+    for reprt in reports:
+        for title in reprt:
             if title not in titles:
                 titles.append(title)
 
     lengths = {title: len(title) for title in titles}
     for title in titles:
-        for report in reports:
-            if title in report and len(str(report[title])) > lengths[title]:
-                lengths[title] = len(str(report[title]))
+        for reprt in reports:
+            if title in reprt and len(str(reprt[title])) > lengths[title]:
+                lengths[title] = len(str(reprt[title]))
 
     line = '|' + '|'.join([' ' + title + ' '*(lengths[title]-len(title))
                            for title in titles]) + '|\n'
     line += '|' + '|'.join([':' + '-'*(lengths[title]-1) + ':'
                             for title in titles]) + '|\n'
 
-    for report in reports:
+    for reprt in reports:
         line += '|'
         for title in titles:
             line += ' '
-            line += str(report[title])
-            line += ' '*(lengths[title]-len(str(report[title])))
+            line += str(reprt[title])
+            line += ' '*(lengths[title]-len(str(reprt[title])))
             line += '|'
         line += '\n'
 
@@ -150,20 +140,23 @@ def parse_reports(reports: list, prints=True):
 
 
 if __name__ == '__main__':
-    plot_histograms = False
+    plot_histograms = True
     print_reports = True
 
-    n_trials = 100, 10000,  # 1000000
-    prod_times = 8 * 60, 1000
-    means = 3, 5, 7
+    n_trials = 1e2, 1e3, 1e4, 1e6
+
+    prod_times = 8 * 60,
+    means = 3,
 
     report = []
+    plots = []
 
     for m in means:
         for p in prod_times:
             for n in n_trials:
+                n = int(n)
                 s_time = time.time()
-                sample = [produce(p, m) for _ in range(n)]
+                sample = [produce(p, m, 3*60) for _ in range(n)]
                 sample.sort()
                 length = len(sample)
                 lower_q = sample[int(0.05 * length)]
@@ -173,8 +166,7 @@ if __name__ == '__main__':
                 s_variance = stats.variation(sample)
                 report.append({'production time': p,
                                'number of trials': n,
-                               'time taken': time.time() - s_time,
-                               'samples': None,
+                               'time taken (s)': time.time() - s_time,
                                'expected mean': p / (5 * m),
                                'expected variance': 'unknown',
                                'sample mean': s_mean,
@@ -183,9 +175,14 @@ if __name__ == '__main__':
                                '95% percentile': higher_q,
                                })
                 if plot_histograms:
-                    plt.hist(sample,
-                             range(min(sample), max(sample)+1),
-                             density=True)
+                    plots.append(plt.hist(sample,
+                                 range(0, 50),
+                                 density=True))
+                    #plt.title('Sample density histogram $\mu={}$ $p={}$ $n={}$'
+                    #          .format(m, p, n))
+                    plt.savefig('m3-p480-n1e{}_plot.png'.format(int(
+                        np.log10(
+                        n))))
                     plt.show()
 
     parse_reports(report, print_reports)
